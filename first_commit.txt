@@ -1,0 +1,28 @@
+- vector2i
+   integer vector class
+- buf2 library
+   suite of classes for manipulating primitive 2D buffers with editor functionality in mind.  has paste, each_in, and fill operations, where each_in can be used with lambda functions to modify or view the buffer with optimization via copy versus reference semantics.  supports layered buffers and auto corrected buffer windows, which are used internally by all edit and viewing operations for safety.
+- exceptions library
+   single exception class that can store arbitrary as key value pairs.  a variadic macro is provided to automagically create a factory class that supplies keys for data and exceptions are thrown as you would intuitively expect (e.g. throw out_of_bounds()), however out_of_bounds in this case is really a static global object where the parentheses instantiate the () operator, and the return value is the exception.
+- handle_recycler and handle_name_allocator
+   utility classes that help management systems with handles and naming.  the handle_name_allocator is a special allocator and associative container in one that can look up any allocated objects by name or handle interchangably.  the handle_recycler generates unique handles and can also recycle all freed handles to prevent the max handle value from growing unbounded.
+- auto_tile_map
+   simple tile neighbor map that uses a single byte for neighbor information, generating a bitmap from each of the eight neighbor's states.  tile indices associated with patterns are stored in an array, and found by index using the resulting neighbor patterns.
+- auto_tile_pattern_buffer
+   stores the array of patterns used by auto_tile_map.  generates all concrete patterns from permutations allowed by partial patterns that may include undecided tiles as well as the binary solid/empty states.  Partial patterns are there for ease in the editor, so the user won't have to create the permutations themselves for neighbors they don't care about for the currently edited tile.
+- map renderers
+   draw single map buffers from buf2 interfaces
+- map compositor
+   ordered set of map renderers that also supports clipping and some more optimizations
+- atlas
+   large singleton image manager that stores handles and names for images and regions.  regions can be tiled as well, for use as tilesets or in animations.
+- atlas image library
+   optimizing image factories using a block allocator, and two highly inlined variants of the image class, one which supports scaling and rotating, and always uses the least amount of computation neccesary on geometry, and one which assumes everything is axis aligned (much faster, used for tiles, GUI, hud elements).
+- widget library
+   experimental widget library that acts as a secondary receiver for window events.  Focus switching, ordered drawing, and event handling work. There is also a special tiled widget wrapper that forwards mouse coordinates in tile coordinates the wrapped implementation.
+- builtin tileset
+   builtin tileset for various signals.  Includes neighbor renderer tiles for all viewing modes (states mode or tiles preview mode), pattern editor tiles, and the missing tile icon.
+- fismath library
+   a tiny math library that has so far consisted of a heavily optimized angle class with true angle modulus done without the fmod function, as well as smart interpolators.  It also has a tiny seedable random number generator called prng.  I am not the author of prng, but I am the author of the as of yet very minimal C++ frontend.
+- logging
+   an as of yet unintegrated logging system that uses fungus_util writers and subscribers to write to the stream of choice.

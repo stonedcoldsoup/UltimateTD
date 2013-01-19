@@ -1,0 +1,9 @@
+systiles.png
+0-background
+1-pattern part tile
+2-pattern part possible
+3-no auto tile found
+4-neighbors layer tile
+5-NW  6-NE  7-SE  8-SW
+9-N  10-S  11-W  12-E
+13-blank tile
