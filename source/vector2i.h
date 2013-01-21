@@ -26,6 +26,11 @@ namespace UTD
 			x(integer_type(m.x)), y(integer_type(m.y))
 		{}
 		
+		vector2i(const Vector2d &m):
+			x(m.getX()),
+			y(m.getY())
+		{}
+		
 		vector2i &operator =(const vector2i<T> &m)
 		{
 			x = integer_type(m.x);
@@ -44,6 +49,11 @@ namespace UTD
 		operator vector2i<U>() const
 		{
 			return vector2i<U>(U(x), U(y));
+		}
+		
+		explicit operator Vector2d() const // conversion to phoenix::Vector2d
+		{
+			return Vector2d(x, y);
 		}
 		
 		vector2i<diff_type> operator -() const

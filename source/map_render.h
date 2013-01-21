@@ -10,29 +10,87 @@
 
 namespace UTD
 {
+	struct map_metrics
+	{
+		Vector2d m_tile_size;
+		coord    m_clip_coords;
+		extent   m_clip_extent;
+		float    depth;
+		bool     b_clip;
+		
+		map_metrics(const Vector2d &m_tile_size,
+				    float depth = 0.0f):
+			m_tile_size(m_tile_size),
+			depth(depth),
+			b_clip(false)
+		{}
+		
+		map_metrics(const Vector2d &m_tile_size,
+		     coord  m_clip_coords,
+			 extent m_clip_extent,
+			 float depth = 0.0f):
+			m_tile_size(m_tile_size),
+			m_clip_coords(m_clip_coords),
+			m_clip_extent(m_clip_extent),
+			depth(depth),
+			b_clip(true)
+		{}
+		
+		map_metrics(const map_metrics &m) = default;
+		map_metrics(map_metrics &&m) = default;
+		
+		map_metrics &operator =(const map_metrics &m) = default;
+		map_metrics &operator =(map_metrics &&m) = default;
+		
+		struct region
+		{
+			Vector2d m_pos;
+			coord    m_coords;
+			extent   m_extent;
+		};
+		
+		inline bool compute_map_region(const Vector2d &m_offset, region &m_rgn);
+	};
+
 	class map_renderer_base
 	{
 	private:
-		float tw, th;
+		map_metrics m_metrics;
 	public:
-		map_renderer_base(const Vector2d &m_tile_size);
+		map_renderer_base(const map_metrics &m_metrics);
 		virtual ~map_renderer_base();
 		
-		inline Vector2d get_tile_size() const                  {return Vector2d(tw, th);}
-		inline void set_tile_size(const Vector2d &m_tile_size) {tw = m_tile_size.getX(); th = m_tile_size.getY();}
-		inline void set_tile_size(float tw, float th)          {this->tw = tw; this->th = th;}
+		inline const Vector2d &get_tile_size() const           {return m_metrics.m_tile_size;}
+		inline void get_tile_size(float &tw, float &th) const  {tw = m_metrics.m_tile_size.getX(); th = m_metrics.m_tile_size.getY();}
+		inline void set_tile_size(const Vector2d &m_tile_size) {m_metrics.m_tile_size = m_tile_size;}
+		inline void set_tile_size(float tw, float th)          {m_metrics.m_tile_size = Vector2d(tw, th);}
 		
-		inline float get_tile_width()  const {return tw;}
-		inline float get_tile_height() const {return th;}
+		inline float get_tile_width()  const {return m_metrics.m_tile_size.getX();}
+		inline float get_tile_height() const {return m_metrics.m_tile_size.getY();}
+		
+		inline void set_clip_rect(coord m_coords, extent m_extent)         {m_metrics.m_clip_coords = m_coords; m_metrics.m_clip_extent = m_extent;}
+		inline void get_clip_rect(coord &m_coords, extent &m_extent) const {m_coords = m_metrics.m_clip_coords; m_extent = m_metrics.m_clip_extent;}
+		
+		inline void   set_clip_coords(coord m_coords)  {m_metrics.m_clip_coords = m_coords;}
+		inline coord  get_clip_coords() const          {return m_metrics.m_clip_coords;}
+		
+		inline void   set_clip_extent(extent m_extent) {m_metrics.m_clip_extent = m_extent;}
+		inline extent get_clip_extent() const          {return m_metrics.m_clip_extent;}
+		
+		inline void set_clip(bool b_clip) {m_metrics.b_clip = b_clip;}
+		inline bool get_clip() const      {return m_metrics.b_clip;}
+		
+		inline void  set_depth(float depth) {m_metrics.depth = depth;}
+		inline float get_depth() const      {return m_metrics.depth;}
 	};
 	
 	class logic_buf_renderer:
 		public map_renderer_base
 	{
 	public:
-		logic_buf_renderer(const Vector2d &m_tile_size);
+		logic_buf_renderer(const map_metrics &m_metrics);
 
-		virtual void draw(const logic_tile_buf::bufi *m_bufi, const Vector2d &m_pos, coord m_coords, extent m_extent) = 0;
+		virtual void draw(const logic_tile_buf::bufi *m_bufi, const map_metrics::region &m_rgn) = 0;
 	};
 	
 	class video_buf_renderer:
@@ -66,17 +124,13 @@ namespace UTD
 		std::vector<cell> m_cells;
 		extent m_extent;
 		
+		tile_index_type i_missing;
+		
 		friend class std::vector<cell>;
 	public:
-		video_buf_renderer(atlas::handle_type tileset_id, const Vector2d &m_tile_size);
-		
-		inline       atlas::image_factory &get_image_factory()       {return m_img_factory;}
-		inline const atlas::image_factory &get_image_factory() const {return m_img_factory;}
-		
-		inline       atlas::image_factory &get_system_image_factory()       {return m_sys_img_factory;}
-		inline const atlas::image_factory &get_system_image_factory() const {return m_sys_img_factory;}
+		video_buf_renderer(atlas::handle_type tileset_id, const map_metrics &m_metrics, tile_index_type i_missing = UTS_DEFAULT_MISSING_TILE);
 
-		void draw(const video_tile_buf::bufi *m_bufi, const Vector2d &m_pos, coord m_coords, extent m_extent);
+		void draw(const video_tile_buf::bufi *m_bufi, const map_metrics::region &m_rgn);
 	};
 	
 	class state_renderer:
@@ -86,12 +140,12 @@ namespace UTD
 		GraphicsFactory2d &m_graphicsfactory;
 
 	public:
-		state_renderer(GraphicsFactory2d &m_graphicsfactory, const Vector2d &m_tile_size):
-			logic_buf_renderer(m_tile_size),
+		state_renderer(GraphicsFactory2d &m_graphicsfactory, const map_metrics &m_metrics):
+			logic_buf_renderer(m_metrics),
 			m_graphicsfactory(m_graphicsfactory)
 		{}
 	
-		virtual void draw(const logic_tile_buf::bufi *m_bufi, const Vector2d &m_pos, coord m_coords, extent m_extent);
+		virtual void draw(const logic_tile_buf::bufi *m_bufi, const map_metrics::region &m_rgn);
 	};
 	
 	class neighbor_renderer:
@@ -107,15 +161,15 @@ namespace UTD
 		inline void get_pattern_rects(coord m_coords, uint8_t bits);
 		inline void draw_rects(const Vector2d &m_pos);
 	public:
-		neighbor_renderer(GraphicsFactory2d &m_graphicsfactory, const Vector2d &m_tile_size):
-			logic_buf_renderer(m_tile_size),
+		neighbor_renderer(GraphicsFactory2d &m_graphicsfactory, const map_metrics &m_metrics):
+			logic_buf_renderer(m_metrics),
 			m_graphicsfactory(m_graphicsfactory),
 			m_prev_bufi(nullptr),
 			m_prev_coords(-1,-1),
 			m_prev_extent(0,0)
 		{}
 	
-		virtual void draw(const logic_tile_buf::bufi *m_bufi, const Vector2d &m_pos, coord m_coords, extent m_extent);
+		virtual void draw(const logic_tile_buf::bufi *m_bufi, const map_metrics::region &m_rgn);
 	};
 	
 	class map_compositor
@@ -131,27 +185,18 @@ namespace UTD
 			handle_type id;
 			bool        b_show;
 			
-			virtual void set_clip_rect(coord m_coords, extent m_extent) = 0;
-			
 			friend class map_compositor;
 		public:
 			layer(handle_type id);
 			virtual ~layer();
 			
-			virtual void draw(const Vector2d &m_pos, coord m_coords, extent m_extent) = 0;
+			virtual void draw(const map_metrics::region &m_rgn) = 0;
 			
 			inline void show(bool b_show = true) {this->b_show = b_show;}
 			inline void hide() 					 {show(false);}
 			inline bool visible() const 		 {return b_show;}
 			
 			inline handle_type get_id() const  {return id;}
-		};
-		
-		struct window_info
-		{
-			Vector2d m_pos, m_offset, m_extent;
-			
-			inline void compute_map_region(const Vector2d &m_tile_size, Vector2d &m_dpos, coord &m_dcoords, extent &m_dextent);
 		};
 	private:
 		template <typename rendererT>
@@ -162,8 +207,6 @@ namespace UTD
 			rendererT m_renderer;
 			const logic_tile_buf::bufi *m_bufi;
 			
-			virtual void set_clip_rect(coord m_coords, extent m_extent) {}
-			
 			friend class map_compositor;
 		public:
 			template <typename... argT>
@@ -173,9 +216,9 @@ namespace UTD
 				m_bufi(m_bufi)
 			{}
 			
-			virtual void draw(const Vector2d &m_pos, coord m_coords, extent m_extent)
+			virtual void draw(const map_metrics::region &m_rgn)
 			{
-				if (b_show) m_renderer.draw(m_bufi, m_pos, m_coords, m_extent);
+				if (b_show) m_renderer.draw(m_bufi, m_rgn);
 			}
 		};
 		
@@ -186,24 +229,12 @@ namespace UTD
 			video_buf_renderer m_renderer;
 			const video_tile_buf::bufi *m_bufi;
 			
-			virtual void set_clip_rect(coord m_coords, extent m_extent)
-			{
-				m_renderer.get_image_factory().clip(true);
-				m_renderer.get_image_factory().set_clip_rect(m_coords, m_extent);
-				
-				m_renderer.get_system_image_factory().clip(true);
-				m_renderer.get_system_image_factory().set_clip_rect(m_coords, m_extent);
-			}
-			
 			friend class map_compositor;
 		public:
 			video_layer(handle_type id, const video_tile_buf::bufi *m_bufi,
-			            atlas::handle_type tileset_id, const Vector2d &m_tile_size);
-					
-			inline       atlas::image_factory &get_image_factory()       {return m_renderer.get_image_factory();}
-			inline const atlas::image_factory &get_image_factory() const {return m_renderer.get_image_factory();}
+			            atlas::handle_type tileset_id, const map_metrics &m_metrics, tile_index_type i_missing);
 			
-			virtual void draw(const Vector2d &m_pos, coord m_coords, extent m_extent);
+			virtual void draw(const map_metrics::region &m_rgn);
 		};
 		
 		typedef
@@ -213,19 +244,22 @@ namespace UTD
 		layer_map m_layer_map;
 		std::list<layer *> m_layers;
 		
-		window_info m_wnd_info;
-		Vector2d m_tile_size;
+		Vector2d    m_offset;
+		map_metrics m_metrics;
 		static handle_recycler<layer::handle_type> m_handle_alloc;
 		
 		inline layer::handle_type register_layer(layer *m_layer, bool b_at_back);
 	public:
-		map_compositor(const window_info &m_wnd_info, const Vector2d &m_tile_size);
+		map_compositor(const map_metrics &m_metrics);
 		~map_compositor();
 		
-		inline       window_info &get_window_info()       {return m_wnd_info;}
-		inline const window_info &get_window_info() const {return m_wnd_info;}
+		inline void set_offset(const Vector2d &m_offset) {this->m_offset = m_offset;}
+		inline const Vector2d &get_offset() const        {return m_offset;}
+		
+		inline       map_metrics &get_metrics()       {return m_metrics;}
+		inline const map_metrics &get_metrics() const {return m_metrics;}
 	
-		layer::handle_type register_video_layer(const video_tile_buf::bufi *m_bufi, atlas::handle_type tileset_id, bool b_at_back = false);
+		layer::handle_type register_video_layer(const video_tile_buf::bufi *m_bufi, atlas::handle_type tileset_id, tile_index_type i_missing = UTS_DEFAULT_MISSING_TILE, bool b_at_back = false);
 		layer::handle_type register_neighbor_layer(const logic_tile_buf::bufi *m_bufi, GraphicsFactory2d &m_graphicsfactory, bool b_at_back = false);
 		layer::handle_type register_state_layer(const logic_tile_buf::bufi *m_bufi, GraphicsFactory2d &m_graphicsfactory, bool b_at_back = false);
 		
@@ -255,11 +289,20 @@ namespace UTD
 		public map_renderer_base
 	{
 	private:
-		GraphicsFactory2d &m_graphicsfactory;
+		atlas::image_factory m_sys_img_factory;
+		atlas::rect_image *m_tile_imgs[nbi_count];
+		atlas::rect_image *m_center_img;
+		
+		Vector2d m_prev_pos;
 
-		inline void draw_tile(const Vector2d &m_pos, char dat);
+		template <size_type i>
+		inline void draw_tile_impl(const Vector2d &m_pos, char dat);
+		
+		template <size_type i>
+		inline void draw_tile(const pattern_part &m_part, const Vector2d &m_pos);
 	public:
-		pattern_renderer(GraphicsFactory2d &m_graphicsfactory, const Vector2d &m_tile_size);
+		pattern_renderer(const Vector2d &m_tile_size, float depth = 0.0f);
+		virtual ~pattern_renderer();
 		
 		void draw(const pattern_part &m_part, const Vector2d &m_pos);
 	};

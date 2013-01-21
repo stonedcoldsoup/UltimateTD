@@ -21,13 +21,12 @@ namespace UTD
 		
 		pattern_renderer m_renderer;
 	public:
-		pattern_part_edit_widget_impl(GraphicsFactory2d &m_graphicsfactory, pattern_part &m_pat, const Vector2d &m_pos, const Vector2d &m_tile_size):
+		pattern_part_edit_widget_impl(pattern_part &m_pat, const Vector2d &m_pos, const Vector2d &m_tile_size):
 			m_pat(m_pat), m_pos(m_pos),
 			m_tile_size(m_tile_size),
 			m_offset(0,0), m_extent(m_tile_size * 3.0f),
 			b_lmb_down(false),
-			
-			m_renderer(m_graphicsfactory, m_tile_size)
+			m_renderer(m_tile_size, 1.0f)
 		{
 		}
 		

@@ -10,10 +10,10 @@ CMAKE_MINIMUM_REQUIRED( VERSION 2.8 )
 
 PROJECT( UltimateTD )
 
-set(CMAKE_CXX_FLAGS_RELEASE "-Wall -std=c++0x -O3 -fno-strict-aliasing")
+set(CMAKE_CXX_FLAGS_RELEASE "-Wall -std=c++0x -O3 -s -fno-strict-aliasing")
 set(CMAKE_CXX_FLAGS_DEBUG "-Wall -std=c++0x -g -fno-strict-aliasing")
 
-set(CMAKE_C_FLAGS_RELEASE "-Wall -ansi -O3 -fno-strict-aliasing")
+set(CMAKE_C_FLAGS_RELEASE "-Wall -ansi -O3 -s -fno-strict-aliasing")
 set(CMAKE_C_FLAGS_DEBUG "-Wall -ansi -g -fno-strict-aliasing")
 
 #############################

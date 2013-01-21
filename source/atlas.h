@@ -222,7 +222,17 @@ namespace UTD
 		
 		struct image_config
 		{
-			enum: uint8_t {simple = 0x0, scaled = 0x1, rotated = 0x2, centered = 0x4, all = scaled|rotated|centered};
+			enum: uint8_t
+			{
+				simple = 0x0,
+				scaled = 0x1,
+				rotated = 0x2,
+				centered = 0x4,
+				all = scaled|rotated|centered,
+				
+				s = scaled, r = rotated, c = centered,
+				sr = s|r, rc = r|c, sc = s|c
+			};
 		
 			uint8_t i_flags;
 			
@@ -239,6 +249,20 @@ namespace UTD
 			{}
 			
 			image_config(uint8_t i_flags, math::angle m_rot, float depth = 0.0f):
+				i_flags(i_flags),
+				m_scl(1,1),
+				m_rot(m_rot),
+				depth(depth)
+			{}
+			
+			explicit image_config(uint8_t i_flags, float depth, const Vector2d &m_scl = Vector2d(1,1), math::angle m_rot = 0.0f):
+				i_flags(i_flags),
+				m_scl(1,1),
+				m_rot(m_rot),
+				depth(depth)
+			{}
+			
+			explicit image_config(uint8_t i_flags, float depth, math::angle m_rot):
 				i_flags(i_flags),
 				m_scl(1,1),
 				m_rot(m_rot),

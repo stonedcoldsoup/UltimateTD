@@ -19,9 +19,7 @@ namespace UTD
 		m_config(m_config),
 		b_dirty(true),
 		b_geom_attrib_dirty(true)
-	{
-		update();
-	}
+	{}
 	
 	atlas::image::~image()
 	{
@@ -36,13 +34,41 @@ namespace UTD
 		depth(depth),
 		b_dirty(true),
 		b_geom_attrib_dirty(true)
-	{
-		update();
-	}
+	{}
 	
 	atlas::rect_image::~rect_image()
 	{
 		if (m_geom) m_geom->drop();
+	}
+	
+	BatchGeometryPtr atlas::image_factory::gen_geometry(tile_index_type i_tile)
+	{
+		return (i_tile < 0 || i_tile >= tile_index_type(m_coords.size())) ?
+			   BatchGeometryPtr()										  :
+			   m_atlas->gen_geometry(m_info.m_tex_data, m_coords[i_tile], m_extent, m_config.depth);
+	}
+	
+	BatchGeometryPtr atlas::image_factory::gen_texcoords(BatchGeometryPtr m_geom, tile_index_type i_tile) const
+	{
+		if (i_tile >= 0 && i_tile < tile_index_type(m_coords.size()))
+		{
+			m_atlas->gen_texcoords(m_geom, m_info.m_tex_data, m_coords[i_tile], m_extent);
+			return m_geom;
+		}
+		else
+			return BatchGeometryPtr();
+	}
+	
+	void atlas::image_factory::clip_geometry(BatchGeometryPtr m_geom) const
+	{
+		if (m_geom->getClipping() != b_clip)
+		{
+			m_geom->setClipping(b_clip);
+			if (b_clip)
+				m_geom->setClippingRectangle(phoenix::Rectangle(m_clip_coords.x, m_clip_coords.y, m_clip_extent.x, m_clip_extent.y));
+			
+			m_geom->update();
+		}
 	}
 	
 	inline void atlas::image_factory::init()

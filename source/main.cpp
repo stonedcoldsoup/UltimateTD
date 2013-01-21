@@ -28,9 +28,7 @@ Timer 		 g_timer;
 //#define MAPHEIGHT 3
 
 widget_manager   		 m_editor_widgets;
-
 pattern_part             m_test_pat;
-pattern_part_edit_widget m_pat_edit_test(g_rendersystem.getGraphicsFactory(), m_test_pat, Vector2d(50, 50), Vector2d(TILEWIDTH,TILEHEIGHT));
 
 auto_tile_map     m_automap(extent(MAPWIDTH, MAPHEIGHT));
 neighbor_renderer m_neighbor_renderer(g_rendersystem.getGraphicsFactory(), Vector2d(TILEWIDTH, TILEHEIGHT));
@@ -59,9 +57,11 @@ const uint8_t m_pattern[10*12] =
 
 video_tile_buf::bufm m_video_bufm(extent(MAPWIDTH, MAPHEIGHT));
 map_compositor *m_map_compositor;
+pattern_part_edit_widget *m_pat_edit_test;
 
 void cleanup()
 {
+	delete m_pat_edit_test;
 	delete m_map_compositor;
 	builtin_tileset::destroy();
 	atlas::destroy();
@@ -71,6 +71,8 @@ void init()
 {
 	atlas::create(g_rendersystem);
 	builtin_tileset::create();
+	
+	m_pat_edit_test = new pattern_part_edit_widget(m_test_pat, Vector2d(50, 50), Vector2d(TILEWIDTH,TILEHEIGHT));
 
 	atlas::handle_type id_tiles_rgn = 0, id_big_rgn = 0, id_tiles_tex = atlas::instance()->create_texture("tiles2_0.png", false);
 	
@@ -86,19 +88,21 @@ void init()
 		id_big_rgn   = atlas::instance()->create_region("tileset_all0", id_tiles_tex);
 	}
 	
-	m_map_compositor = new map_compositor({Vector2d(75, 75), Vector2d(), Vector2d(800-150,600-150)}, Vector2d(TILEWIDTH, TILEHEIGHT));
-	m_map_compositor->register_video_layer(&m_video_bufm, id_tiles_rgn);
+	map_metrics m_metrics(Vector2d(TILEWIDTH, TILEHEIGHT), coord(75, 75), extent(800-150,600-150));
+	m_map_compositor = new map_compositor(m_metrics);
+	m_map_compositor->register_video_layer(&m_video_bufm, id_tiles_rgn, UTS_AUTOTILEEDIT_MISSING_TILE);
 	
 	m_video_bufm.each_in
 	(
 		coord(), m_video_bufm.get_extent(),
 		[&] (coord m_coord, tile_index_type &i_tile)
 		{
-			i_tile = m_coord.size() % 120;
+			tile_index_type i = m_coord.size() % 10 - 2;
+			i_tile = i == -2 ? 2000 : i;
 		}
 	);
 
-	m_editor_widgets.register_widget(&m_pat_edit_test);
+	m_editor_widgets.register_widget(m_pat_edit_test);
 	//g_tileset_texture = g_rendersystem.loadTexture("tiles.png", false);
 
 	m_automap.state_buf()->fill(0);
@@ -137,7 +141,7 @@ void update_all()
 	if (EventReceiver::Instance()->getKey(PHK_UP))    m_chg += Vector2d( 0,-5);
 	if (EventReceiver::Instance()->getKey(PHK_DOWN))  m_chg += Vector2d( 0, 5);
 	
-	m_map_compositor->get_window_info().m_offset += m_chg;
+	m_map_compositor->set_offset(m_map_compositor->get_offset() + m_chg);
 	
 	/*m_tileset_image->set_position(coord(200.0f+50.0f*cosf(t), 200.0f+50.0f*sinf(t)));
 	m_tileset_image->set_rotation(-t);

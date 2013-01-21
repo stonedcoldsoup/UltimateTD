@@ -16,7 +16,7 @@ namespace UTD
 		coord ( 0, 0), // tileset origin
 		extent(16,16), // tile size
 		extent( 8, 2), // tileset dim
-		5              // count in last row
+		8              // count in last row
 	};
 
 	enum builtin_tile_index: tile_index_type
@@ -24,10 +24,10 @@ namespace UTD
 		UTS_EMPTY                = -1,
 		UTS_DEFAULT_MISSING_TILE = 0,
 		
-		UTS_PATTERNEDIT_SOLID_TILE = 1,
-		UTS_PATTERNEDIT_MAYBE_TILE = 2,
-		UTS_PATTERNEDIT_EMPTY_TILE = 3,
-		UTS_PATTERNEDIT_BG_TILE    = 5,
+		UTS_PATTERNEDIT_SOLID_TILE  = 1,
+		UTS_PATTERNEDIT_MAYBE_TILE  = 2,
+		UTS_PATTERNEDIT_EMPTY_TILE  = 3,
+		UTS_PATTERNEDIT_CENTER_TILE = 5,
 		
 		UTS_AUTOTILEEDIT_BG_TILE = 4,
 		
@@ -79,7 +79,7 @@ namespace UTD
 		      atlas::image_factory *get_tileset_factory()       {return m_factory;}
 		const atlas::image_factory *get_tileset_factory() const {return m_factory;}
 		
-		atlas::handle_type get_tileset_factory_region() const   {return rgn_id;}
+		atlas::handle_type get_tileset_handle() const   {return rgn_id;}
 	};
 }
 

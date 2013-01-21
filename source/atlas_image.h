@@ -130,30 +130,9 @@ namespace UTD
 		image_config m_config;
 		bool         b_clip;
 		
-		inline BatchGeometryPtr gen_geometry(tile_index_type i_tile)
-		{
-			return (i_tile < 0 || i_tile >= tile_index_type(m_coords.size())) ?
-				   BatchGeometryPtr()										  :
-				   m_atlas->gen_geometry(m_info.m_tex_data, m_coords[i_tile], m_extent, m_config.depth);
-		}
-		
-		inline BatchGeometryPtr gen_texcoords(BatchGeometryPtr m_geom, tile_index_type i_tile) const
-		{
-			if (i_tile >= 0 && i_tile < tile_index_type(m_coords.size()))
-			{
-				m_atlas->gen_texcoords(m_geom, m_info.m_tex_data, m_coords[i_tile], m_extent);
-				return m_geom;
-			}
-			else
-				return BatchGeometryPtr();
-		}
-		
-		inline void clip_geometry(BatchGeometryPtr m_geom) const
-		{
-			m_geom->setClipping(b_clip);
-			if (b_clip)
-				m_geom->setClippingRectangle(phoenix::Rectangle(m_clip_coords.x, m_clip_coords.y, m_clip_extent.x, m_clip_extent.y));
-		}
+		BatchGeometryPtr gen_geometry(tile_index_type i_tile);
+		BatchGeometryPtr gen_texcoords(BatchGeometryPtr m_geom, tile_index_type i_tile) const;
+		void clip_geometry(BatchGeometryPtr m_geom) const;
 		
 		inline void init();
 		

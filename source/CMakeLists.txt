@@ -5,7 +5,7 @@
 cmake_minimum_required( VERSION 2.6 )
 
 project( UltimateTD )
-SET ( BINSOURCES main.cpp exceptions.h
+SET ( BINSOURCES exceptions.h
 				 handle_recycler.h
 				 handle_name_allocator.h
 				 streamable.h encoding.h
@@ -21,7 +21,7 @@ SET ( BINSOURCES main.cpp exceptions.h
 				 map2.h map2.cpp
 				 map_render.h map_render.cpp
 				 widgets.h widgets.cpp
-				 editor_widgets.h )
+				 editor_widgets.h main.cpp )
 
 ##############
 # Executable #
