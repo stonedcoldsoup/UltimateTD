@@ -8,7 +8,7 @@
 
 namespace UTD
 {
-	class pattern_part_edit_widget_impl:
+	/*class pattern_part_edit_widget_impl:
 		public tiled_widget_impl
 	{
 	private:
@@ -21,12 +21,12 @@ namespace UTD
 		
 		pattern_renderer m_renderer;
 	public:
-		pattern_part_edit_widget_impl(pattern_part &m_pat, const Vector2d &m_pos, const Vector2d &m_tile_size):
+		pattern_part_edit_widget_impl(pattern_part &m_pat, const Vector2d &m_pos, const Vector2d &m_tile_size, depth_layer m_depth):
 			m_pat(m_pat), m_pos(m_pos),
 			m_tile_size(m_tile_size),
 			m_offset(0,0), m_extent(m_tile_size * 3.0f),
 			b_lmb_down(false),
-			m_renderer(m_tile_size, 1.0f)
+			m_renderer(m_tile_size, m_depth)
 		{
 		}
 		
@@ -57,7 +57,7 @@ namespace UTD
 		virtual inline void on_move(coord m_coords)								    {}
 		virtual inline void on_key(phoenix::Key m_key, bool b_down, coord m_coords) {}
 		virtual inline void on_char(char c)                                         {}
-		virtual inline void on_scroll(int_type d)									{}*/
+		virtual inline void on_scroll(int_type d)									{}*//*
 		
 		virtual inline const Vector2d &get_position()     const {return m_pos;}
 		virtual inline const Vector2d &get_offset()       const {return m_offset;}
@@ -71,7 +71,7 @@ namespace UTD
 	
 	typedef
 		tiled_widget<pattern_part_edit_widget_impl>
-		pattern_part_edit_widget;
+		pattern_part_edit_widget;*/
 }
 
 #endif

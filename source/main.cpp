@@ -1,4 +1,43 @@
-// TODO: do clipping and window position limiting for map_compositor.
+// TODO: refactor! ... widget system
+//       on_focus returns true to bring to front
+//       global depth layering stack is appropriately
+//       incremented when drawing widgets.
+//       widgets which implement drawing tilemaps
+//       should push and pop depth priority before and after
+//       tilemap renderer use.
+//
+//       improve! ... auto_tile_map, pattern_part
+//       the code inside auto_tile_map does not need
+//       refactoring, but the scheme does: get neighbors
+//       for ALL tiles indiscriminantly.
+//       store incrementally updated video map
+//       given a tileset and pattern buffer.
+//       pattern buffer should now also store a neighbor
+//       map vector for empty tiles as well to suit
+//       the new autotiling scheme expansion.
+//       map2 class: store layers and batch each autotile
+//       layer to a single tilemap renderer.  each raw
+//       video layer is batched to it's own renderer, minus
+//       the information overlay layers.  layers can
+//       be user sorted and hidden and shown.  an active layer
+//       will take editor input.
+//       
+//       optimize! ... atlas::image_factory
+//       in the case of tilemaps, we are NO LONGER taking the
+//       approach of minimum geometry construction.
+//       Enough deep copying happens by design that the overhead
+//       may actually be a bottleneck.  Add workaround for
+//       atlas::image as a persistent geometry object by
+//       adding static function atlas::image_factory::immediate(),
+//       which destroys an image object, but not before making the
+//       geometry immediate and then swapping it out, preventing
+//       atlas::image from dropping it.  Should speed things up,
+//       prevents any and all redundant list iteration client side
+//       of PhoenixCore; letting the geometry batcher sort it all out.
+//
+//       socialize! ... Let Jon and Sven know about the critical bug in the
+//       BMFont loader.  If they still haven't gotten around to helping in
+//       a couple of months, implement a fix in the stonedcoldsoup fork.
 
 #include <iostream>
 #include "common.h"
@@ -7,6 +46,8 @@
 #include "editor_widgets.h"
 #include "atlas.h"
 #include "atlas_image.h"
+#include "depth_layer.h"
+#include "fismath.h"
 
 using namespace UTD;
 using namespace phoenix;
@@ -15,8 +56,9 @@ static constexpr float GLOBAL_FPS       = 60.0;
 static constexpr float UPDATE_FREQUENCY = 1.0/60.0;
 
 // GLOBALS BECAUSE I HATE KITTENS AND HAPPINESS
-RenderSystem g_rendersystem(Vector2d(800, 600), false);
-Timer 		 g_timer;
+RenderSystem  g_rendersystem(Vector2d(800, 600), false);
+Timer 		  g_timer;
+//BitmapFontPtr g_font;
 
 #define TILEWIDTH  48
 #define TILEHEIGHT 48
@@ -30,39 +72,18 @@ Timer 		 g_timer;
 widget_manager   		 m_editor_widgets;
 pattern_part             m_test_pat;
 
-auto_tile_map     m_automap(extent(MAPWIDTH, MAPHEIGHT));
-neighbor_renderer m_neighbor_renderer(g_rendersystem.getGraphicsFactory(), Vector2d(TILEWIDTH, TILEHEIGHT));
-state_renderer    m_state_renderer(g_rendersystem.getGraphicsFactory(), Vector2d(TILEWIDTH, TILEHEIGHT));
-
-TexturePtr g_tileset_texture;
-TexturePtr g_ground_texture;
-TexturePtr g_base_texture;
-TexturePtr g_spawn_texture;
-
-const uint8_t m_pattern[10*12] = 
-{
-	0,0,0,0,0,0,0,0,0,0,
-	0,1,1,0,0,0,0,1,1,0,
-	0,1,1,1,0,0,1,1,1,0,
-	0,0,1,1,0,0,1,1,0,0,
-	0,0,0,0,0,0,0,0,0,0,
-	0,1,1,1,1,1,1,1,1,0,
-	0,1,1,1,1,1,1,1,1,0,
-	0,0,1,1,0,0,1,1,0,0,
-	0,1,1,1,0,0,1,1,1,0,
-	0,1,1,1,1,1,1,1,1,0,
-	0,0,1,1,1,1,1,1,0,0,
-	0,0,1,1,1,1,1,1,0,0
-};
-
+auto_tile_map        m_automap(extent(MAPWIDTH, MAPHEIGHT));
 video_tile_buf::bufm m_video_bufm(extent(MAPWIDTH, MAPHEIGHT));
-map_compositor *m_map_compositor;
-pattern_part_edit_widget *m_pat_edit_test;
+map_renderer2        *m_map_renderer;
+
+atlas::handle_type id_tiles_rgn = 0, id_tiles_tex = 0;
 
 void cleanup()
 {
-	delete m_pat_edit_test;
-	delete m_map_compositor;
+	//g_font->drop();
+
+	delete m_map_renderer;
+
 	builtin_tileset::destroy();
 	atlas::destroy();
 }
@@ -72,10 +93,7 @@ void init()
 	atlas::create(g_rendersystem);
 	builtin_tileset::create();
 	
-	m_pat_edit_test = new pattern_part_edit_widget(m_test_pat, Vector2d(50, 50), Vector2d(TILEWIDTH,TILEHEIGHT));
-
-	atlas::handle_type id_tiles_rgn = 0, id_big_rgn = 0, id_tiles_tex = atlas::instance()->create_texture("tiles2_0.png", false);
-	
+	id_tiles_tex = atlas::instance()->create_texture("tiles2_0.png", false);
 	if (id_tiles_tex)
 	{
 		atlas::tileset_def m_tileset;
@@ -85,108 +103,63 @@ void init()
 		m_tileset.n_last_row = 2;
 		
 		id_tiles_rgn = atlas::instance()->create_region("tileset0", id_tiles_tex, m_tileset);
-		id_big_rgn   = atlas::instance()->create_region("tileset_all0", id_tiles_tex);
+		//id_big_rgn   = atlas::instance()->create_region("tileset_all0", id_tiles_tex);
 	}
 	
-	map_metrics m_metrics(Vector2d(TILEWIDTH, TILEHEIGHT), coord(75, 75), extent(800-150,600-150));
-	m_map_compositor = new map_compositor(m_metrics);
-	m_map_compositor->register_video_layer(&m_video_bufm, id_tiles_rgn, UTS_AUTOTILEEDIT_MISSING_TILE);
+	m_automap.state_buf()->each_in
+	(
+		coord(),
+		m_automap.get_extent(),
+		[&] (coord m_coord, uint8_t &b)
+		{
+			b = bool((m_coord.y % 2) ? m_coord.x % 2 : (m_coord.x+1) % 2);
+		}
+	);
+	
+	m_automap.update();
 	
 	m_video_bufm.each_in
 	(
-		coord(), m_video_bufm.get_extent(),
+		coord(),
+		m_video_bufm.get_extent(),
 		[&] (coord m_coord, tile_index_type &i_tile)
 		{
-			tile_index_type i = m_coord.size() % 10 - 2;
-			i_tile = i == -2 ? 2000 : i;
+			i_tile = m_coord.size() % 250;
 		}
 	);
-
-	m_editor_widgets.register_widget(m_pat_edit_test);
-	//g_tileset_texture = g_rendersystem.loadTexture("tiles.png", false);
-
-	m_automap.state_buf()->fill(0);
-	for (size_type x = 0; x < 10; ++x)
-	{
-		for (size_type y = 0; y < 12; ++y)
-			m_automap.state_buf()->set(x, y, m_pattern[x + y * 10]);
-	}
-	logic_tile_buf::paste(m_automap.state_buf(), m_automap.state_buf(), coord(10, 0));
-	logic_tile_buf::paste(m_automap.state_buf(), m_automap.state_buf(), coord(20, 0));
-	logic_tile_buf::paste(m_automap.state_buf(), m_automap.state_buf(), coord(0, 12));
 	
-	/*g_bufl.set_active_layer(0);
-	g_bufl.fill(1);
-	g_bufl.set(coord(0,0), 0);
-	g_bufl.set(coord(0,2), 0);
-	g_bufl.set(coord(1,1), 0);
-	g_bufl.set(coord(2,0), 0);
-	g_bufl.set(coord(2,2), 0);*/
+	map_metrics m_metrics(Vector2d(TILEWIDTH,TILEHEIGHT), coord(75,75), extent(800-150,600-150));
+	m_map_renderer = new map_renderer2(m_metrics, id_tiles_rgn);
 	
-	m_automap.update();
+	//g_font = new BitmapFont(g_rendersystem);
+	//g_font->load(g_rendersystem, "mfonts.fnt");
+	//g_rendersystem.setFont();
 }
+
+static Vector2d m_map_offset = Vector2d(0,0);
 
 void update_all()
 {
-	// EVIL!
-	static float t = 0.0f;
+	if (EventReceiver::Instance()->getKey(PHK_LEFT))  m_map_offset += Vector2d(-5, 0);
+	if (EventReceiver::Instance()->getKey(PHK_RIGHT)) m_map_offset += Vector2d( 5, 0);
 	
-	t+=0.1;
-	
-	Vector2d m_chg(0,0);
-	
-	if (EventReceiver::Instance()->getKey(PHK_LEFT))  m_chg += Vector2d(-5, 0);
-	if (EventReceiver::Instance()->getKey(PHK_RIGHT)) m_chg += Vector2d( 5, 0);
-	
-	if (EventReceiver::Instance()->getKey(PHK_UP))    m_chg += Vector2d( 0,-5);
-	if (EventReceiver::Instance()->getKey(PHK_DOWN))  m_chg += Vector2d( 0, 5);
-	
-	m_map_compositor->set_offset(m_map_compositor->get_offset() + m_chg);
-	
-	/*m_tileset_image->set_position(coord(200.0f+50.0f*cosf(t), 200.0f+50.0f*sinf(t)));
-	m_tileset_image->set_rotation(-t);
-	m_tileset_image->set_scale(Vector2d(1.0f+0.75f*cosf(t), 1.0f+0.75f*sinf(t)));
-	m_tileset_image->update();*/
-
-	m_editor_widgets.update();
+	if (EventReceiver::Instance()->getKey(PHK_UP))    m_map_offset += Vector2d( 0,-5);
+	if (EventReceiver::Instance()->getKey(PHK_DOWN))  m_map_offset += Vector2d( 0, 5);
 }
 
 void draw_all()
 {
-	m_editor_widgets.draw();
-	m_map_compositor->draw();
-	//m_video_buf_renderer->draw(&m_video_bufm, Vector2d(0,0), coord(), extent(12, 12));
-	
-	//m_tileset_factory->create();
-
-	/*// draw grid lines
-	for (size_type i = 0; i < MAPWIDTH+1; ++i)
-	{
-		g_rendersystem.drawLine(Vector2d(i * TILEWIDTH, 0), Vector2d(i * TILEWIDTH, TILEHEIGHT*MAPHEIGHT),
-		                        Color(128,128,255,128), Color(128,128,255,128));
-	}
-	
-	for (size_type i = 0; i < MAPHEIGHT+1; ++i)
-	{
-		g_rendersystem.drawLine(Vector2d(0, i * TILEHEIGHT), Vector2d(TILEWIDTH*MAPWIDTH, i * TILEHEIGHT),
-		                        Color(128,128,255,128), Color(128,128,255,128));
-	}
-	
-	m_state_renderer.draw(m_automap.state_buf(), Vector2d(), coord(), m_automap.state_buf()->get_extent());
-	m_neighbor_renderer.draw(m_automap.neighbor_buf(), Vector2d(), coord(), m_automap.neighbor_buf()->get_extent());*/
-
-	/*for (int i = 0; i < 4; ++i)
-	{
-		draw_tile(i, Vector2d(i * TILEWIDTH * SCALEFACTOR, 0));
-		draw_tile(i, Vector2d(i * TILEWIDTH * SCALEFACTOR,16 * SCALEFACTOR));
-		draw_tile(i, Vector2d(i * TILEWIDTH * SCALEFACTOR,32 * SCALEFACTOR));
-		draw_tile(i, Vector2d(i * TILEWIDTH * SCALEFACTOR,48 * SCALEFACTOR));
-		
-		draw_tile(i, Vector2d(i * TILEWIDTH * SCALEFACTOR + TILEWIDTH * SCALEFACTOR * 4, 0));
-		draw_tile(i, Vector2d(i * TILEWIDTH * SCALEFACTOR + TILEWIDTH * SCALEFACTOR * 4,16 * SCALEFACTOR));
-		draw_tile(i, Vector2d(i * TILEWIDTH * SCALEFACTOR + TILEWIDTH * SCALEFACTOR * 4,48 * SCALEFACTOR));
-		draw_tile(i, Vector2d(i * TILEWIDTH * SCALEFACTOR + TILEWIDTH * SCALEFACTOR * 4,32 * SCALEFACTOR));
-	}*/
+	g_depth_layer_stack.reset();
+	m_map_renderer->begin_layers(m_map_offset);
+		//m_map_renderer->draw_video_layer(&m_video_bufm);
+		m_map_renderer->push_depth();
+			m_map_renderer->draw_background_layer(UTS_AUTOTILEEDIT_BG_TILE);
+			m_map_renderer->push_depth();
+				m_map_renderer->draw_state_layer(m_automap.state_buf());
+				m_map_renderer->draw_neighbor_layer(m_automap.neighbor_buf());
+			m_map_renderer->pop_depth();
+		m_map_renderer->pop_depth();
+	m_map_renderer->end_layers();
 }
 
 int main()

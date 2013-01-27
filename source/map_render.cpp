@@ -2,13 +2,13 @@
 
 namespace UTD
 {
-	inline bool map_metrics::compute_map_region(const Vector2d &m_offset, region &m_rgn)
+	bool map_metrics::compute_map_region(const Vector2d &m_offset, region &m_rgn)
 	{
 		m_rgn.m_pos.setX(-(m_offset.getX() < 0.0f ? m_offset.getX() : std::fmod(m_offset.getX(), m_tile_size.getX())));
 		m_rgn.m_pos.setY(-(m_offset.getY() < 0.0f ? m_offset.getY() : std::fmod(m_offset.getY(), m_tile_size.getY())));
 		
-		Vector2d m_range = Vector2d(m_clip_extent) - m_rgn.m_pos;
-		m_rgn.m_pos += Vector2d(m_clip_coords);
+		Vector2d m_range = Vector2d(m_extent) - m_rgn.m_pos;
+		m_rgn.m_pos += Vector2d(m_coords);
 		
 		m_rgn.m_coords.x = coord::integer_type(m_offset.getX() < 0.0f ? 0 : std::floor(m_offset.getX()/m_tile_size.getX()));
 		m_rgn.m_coords.y = coord::integer_type(m_offset.getY() < 0.0f ? 0 : std::floor(m_offset.getY()/m_tile_size.getY()));
@@ -18,8 +18,205 @@ namespace UTD
 		
 		return true;
 	}
+	
+	inline void map_renderer2::cell::update(tile_index_type i_tile, coord m_pos, float depth, bool b_sys)
+	{
+		if (i_tile < (b_sys ? m_owner->m_builtin_factory.tile_count() : m_owner->m_user_factory.tile_count()))
+		{
+			if (m_image)
+			{
+				m_image->set_position(m_pos);
+				m_image->set_depth(depth);
+				m_image->set_tile(i_tile, b_sys ? m_owner->m_builtin_factory : m_owner->m_user_factory);
+			}
+			else
+			{
+				m_image = b_sys ?
+						  m_owner->m_builtin_factory.create_rect(m_pos, i_tile, depth) :
+						  m_owner->m_user_factory.create_rect(m_pos, i_tile, depth);
+			}
+		}
+		else
+		{
+			if (m_image)
+			{
+				m_image->set_position(m_pos);
+				m_image->set_depth(depth);
+				m_image->set_tile(m_owner->i_missing, m_owner->m_builtin_factory);
+			}
+			else
+				m_image = m_owner->m_builtin_factory.create_rect(m_pos, m_owner->i_missing, depth);
+		}
+	
+		m_image->update();
+	}
+	
+	map_renderer2::cell::cell(map_renderer2 *m_owner):
+		m_owner(m_owner),
+		m_image(nullptr)
+	{}
+	
+	map_renderer2::cell::cell(const cell &m):
+		m_owner(m.m_owner),
+		m_image(nullptr)
+	{}
+	
+	inline map_renderer2::cell &map_renderer2::cell::operator =(const cell &m)
+	{
+		m_owner = m.m_owner;
+		return *this;
+	}
+	
+	map_renderer2::cell::~cell()
+	{
+		if (m_image) atlas::image_factory::destroy(m_image);
+	}
+	
+	inline void map_renderer2::__update_cell(tile_index_type i_tile, coord m_coord, float depth, bool b_sys)
+	{
+		if (__i_update >= m_cells.size())
+			m_cells.push_back(this);
+		
+		m_cells[__i_update++].update
+		(
+			i_tile,
+			coord
+			(
+				m_rgn.m_pos.getX()+m_metrics.m_tile_size.getX()*float(m_coord.x),
+				m_rgn.m_pos.getY()+m_metrics.m_tile_size.getY()*float(m_coord.y)
+			),
+			depth,
+			b_sys
+		);
+	}
 
-	map_renderer_base::map_renderer_base(const map_metrics &m_metrics):
+	void map_renderer2::begin_layers(const Vector2d &m_offset, size_type n_layers)
+	{
+		__i_update = 0;
+		m_metrics.compute_map_region(m_offset, m_rgn);
+		m_cells.clear();
+		m_cells.reserve((n_layers+8)*m_rgn.m_extent.size());
+	}
+	
+	void map_renderer2::end_layers()
+	{
+		m_cells.erase(m_cells.begin() + __i_update, m_cells.end());
+	}
+	
+	void map_renderer2::draw_background_layer(tile_index_type i_bg)
+	{
+		for (size_type y = 0; y < m_rgn.m_extent.y; ++y)
+		{
+			for (size_type x = 0; x < m_rgn.m_extent.x; ++x)
+			{
+				__update_cell(i_bg, coord(x, y), g_depth_layer_stack, true);
+			}
+		}
+		
+		++g_depth_layer_stack;
+	}
+
+	void map_renderer2::draw_video_layer(const video_tile_buf::bufi *m_bufi, tile_index_type i_missing)
+	{
+		float depth = g_depth_layer_stack;
+		this->i_missing = i_missing;
+		
+		video_tile_buf::bufw_const m_bufw(m_bufi, m_rgn.m_coords, m_rgn.m_extent);
+		m_bufw.each_in
+		(
+			coord(), m_rgn.m_extent,
+			[&] (coord m_coord, tile_index_type i_tile)
+			{
+				__update_cell(i_tile, m_coord, depth, false);
+			}
+		);
+
+		++g_depth_layer_stack;
+	}
+	
+	void map_renderer2::draw_state_layer(const logic_tile_buf::bufi *m_bufi)
+	{
+		float depth = g_depth_layer_stack;
+		logic_tile_buf::bufw_const m_bufw(m_bufi, m_rgn.m_coords, m_rgn.m_extent);
+		m_bufw.each_in
+		(
+			coord(), m_rgn.m_extent,
+			[&] (coord m_coord, uint8_t v)
+			{
+				__update_cell(v ? UTS_AUTOTILEEDIT_MARKER_TILE : -1, m_coord, depth, true); 
+			}
+		);
+		
+		++g_depth_layer_stack;
+	}
+	
+	void map_renderer2::draw_neighbor_layer(const logic_tile_buf::bufi *m_bufi)
+	{
+		float depth = g_depth_layer_stack;
+		logic_tile_buf::bufw_const m_bufw(m_bufi, m_rgn.m_coords, m_rgn.m_extent);
+		m_bufw.each_in
+		(
+			coord(), m_rgn.m_extent,
+			[&] (coord m_coord, uint8_t bits)
+			{
+				if (bits & nbb_NW) __update_cell(g_builtin_tileset_neighbors[nbi_NW], m_coord, depth, true); 
+				if (bits & nbb_N)  __update_cell(g_builtin_tileset_neighbors[nbi_N], m_coord, depth, true); 
+				if (bits & nbb_NE) __update_cell(g_builtin_tileset_neighbors[nbi_NE], m_coord, depth, true); 
+				if (bits & nbb_W)  __update_cell(g_builtin_tileset_neighbors[nbi_W], m_coord, depth, true); 
+				if (bits & nbb_E)  __update_cell(g_builtin_tileset_neighbors[nbi_E], m_coord, depth, true); 
+				if (bits & nbb_SW) __update_cell(g_builtin_tileset_neighbors[nbi_SW], m_coord, depth, true); 
+				if (bits & nbb_S)  __update_cell(g_builtin_tileset_neighbors[nbi_S], m_coord, depth, true); 
+				if (bits & nbb_SE) __update_cell(g_builtin_tileset_neighbors[nbi_SE], m_coord, depth, true); 
+			}
+		);
+		
+		++g_depth_layer_stack;
+	}
+
+	map_renderer2::map_renderer2(const map_metrics &m_metrics, atlas::handle_type tileset_id):
+		m_metrics(m_metrics),
+		m_user_factory(tileset_id),
+		m_builtin_factory(builtin_tileset::instance()->get_tileset_handle()),
+		i_missing(UTS_DEFAULT_MISSING_TILE)
+	{
+		set_tile_size(m_metrics.m_tile_size);
+		set_clip(m_metrics.b_clip);
+		set_coords(m_metrics.m_coords);
+		set_extent(m_metrics.m_extent);
+	}
+	
+	const map_metrics &map_renderer2::get_metrics() const {return m_metrics;}
+	
+	void map_renderer2::set_tile_size(const Vector2d &m_tile_size)
+	{
+		m_cells.clear();
+		m_metrics.m_tile_size = m_tile_size;
+		m_user_factory.set_out_extent(m_tile_size);
+		m_builtin_factory.set_out_extent(m_tile_size);
+	}
+	
+	void map_renderer2::set_coords(coord m_coords)
+	{
+		m_metrics.m_coords = m_coords;
+		m_user_factory.set_clip_coords(m_metrics.m_coords);
+		m_builtin_factory.set_clip_coords(m_metrics.m_coords);
+	}
+
+	void map_renderer2::set_extent(extent m_extent)
+	{
+		m_metrics.m_extent = m_extent;
+		m_user_factory.set_clip_extent(m_metrics.m_extent);
+		m_builtin_factory.set_clip_extent(m_metrics.m_extent);
+	}
+			
+	void map_renderer2::set_clip(bool b_clip)
+	{
+		m_metrics.b_clip = b_clip;
+		m_user_factory.clip(b_clip);
+		m_builtin_factory.clip(b_clip);
+	}
+
+	/*map_renderer_base::map_renderer_base(const map_metrics &m_metrics):
 		m_metrics(m_metrics)
 	{}
 	
@@ -431,7 +628,7 @@ namespace UTD
 		}
 	}
 	
-	pattern_renderer::pattern_renderer(const Vector2d &m_tile_size, float depth):
+	pattern_renderer::pattern_renderer(const Vector2d &m_tile_size, depth_layer depth):
 		map_renderer_base(map_metrics(m_tile_size, depth)),
 		m_sys_img_factory(builtin_tileset::instance()->get_tileset_handle())
 	{
@@ -526,5 +723,5 @@ namespace UTD
 		
 		m_center_img->set_position(m_pos + get_tile_size());
 		m_center_img->update();
-	}
+	}*/
 }

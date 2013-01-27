@@ -18,7 +18,8 @@ namespace UTD
 		EXCEPTION_MALFORMED_ATLAS_FILE_ID,
 		EXCEPTION_MALFORMED_OR_MISSING_ATLAS_OBJECT_ID,
 		EXCEPTION_NO_SUCH_ATLAS_REGION_ID,
-		EXCEPTION_ATLAS_DOES_NOT_EXIST_ID
+		EXCEPTION_ATLAS_DOES_NOT_EXIST_ID,
+		EXCEPTION_DEPTH_SUB_LAYER_OUT_OF_RANGE_ID
 	};
 	
 	enum out_of_bounds_reason
@@ -136,6 +137,14 @@ namespace UTD
 		atlas_does_not_exist,
 		EXCEPTION_ATLAS_DOES_NOT_EXIST_ID,
 		"The atlas singleton has not yet been initialized."
+	)
+	
+	UTD_EXCEPTION_TYPE
+	(
+		depth_sub_layer_out_of_range,
+		EXCEPTION_DEPTH_SUB_LAYER_OUT_OF_RANGE_ID,
+		"Depth sub layer out of range.",
+		"i", "cap"
 	)
 }
 

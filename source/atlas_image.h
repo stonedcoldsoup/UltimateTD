@@ -194,6 +194,11 @@ namespace UTD
 			return m_alloc_rect.create(*this, gen_geometry(i_tile), m_pos, m_out_extent, m_config.depth);
 		}
 		
+		inline rect_image *create_rect(coord m_pos, tile_index_type i_tile, float depth)
+		{
+			return m_alloc_rect.create(*this, gen_geometry(i_tile), m_pos, m_out_extent, depth);
+		}
+		
 		static inline void destroy(image *m_image)
 		{
 			m_alloc.destroy(m_image);

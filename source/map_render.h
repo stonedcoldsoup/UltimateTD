@@ -7,33 +7,54 @@
 #include "atlas_image.h"
 #include "tile_builtin_sets.h"
 #include "handle_recycler.h"
+#include "depth_layer.h"
 
 namespace UTD
 {
-	struct map_metrics
+	struct metrics
+	{
+		coord  m_coords;
+		extent m_extent;
+		bool   b_clip;
+		
+		metrics():
+			b_clip(true)
+		{}
+		
+		metrics(coord  m_coords,
+			    extent m_extent):
+			m_coords(m_coords),
+			m_extent(m_extent),
+			b_clip(true)
+		{}
+		
+		metrics(const metrics &m) = default;
+		metrics(metrics &&m) = default;
+		
+		metrics &operator =(const metrics &m) = default;
+		metrics &operator =(metrics &&m) = default;
+	};
+
+	struct map_metrics: metrics
 	{
 		Vector2d m_tile_size;
-		coord    m_clip_coords;
-		extent   m_clip_extent;
-		float    depth;
-		bool     b_clip;
 		
-		map_metrics(const Vector2d &m_tile_size,
-				    float depth = 0.0f):
-			m_tile_size(m_tile_size),
-			depth(depth),
-			b_clip(false)
+		map_metrics(const Vector2d &m_tile_size):
+			metrics(),
+			m_tile_size(m_tile_size)
 		{}
 		
 		map_metrics(const Vector2d &m_tile_size,
-		     coord  m_clip_coords,
-			 extent m_clip_extent,
-			 float depth = 0.0f):
-			m_tile_size(m_tile_size),
-			m_clip_coords(m_clip_coords),
-			m_clip_extent(m_clip_extent),
-			depth(depth),
-			b_clip(true)
+		            coord  m_coords,
+					extent m_extent):
+			metrics(m_coords, m_extent),
+			m_tile_size(m_tile_size)
+		{}
+		
+		map_metrics(const Vector2d &m_tile_size,
+					const metrics &m_metrics):
+			metrics(m_metrics),
+			m_tile_size(m_tile_size)
 		{}
 		
 		map_metrics(const map_metrics &m) = default;
@@ -49,10 +70,68 @@ namespace UTD
 			extent   m_extent;
 		};
 		
-		inline bool compute_map_region(const Vector2d &m_offset, region &m_rgn);
+		bool compute_map_region(const Vector2d &m_offset, region &m_rgn);
 	};
 
-	class map_renderer_base
+	class map_renderer2
+	{
+	private:
+		map_metrics m_metrics;
+		
+		atlas::image_factory m_user_factory;
+		atlas::image_factory m_builtin_factory;
+		
+		struct cell
+		{
+			map_renderer2 *m_owner;
+			atlas::rect_image *m_image;
+			
+			inline void update(tile_index_type i_tile, coord m_pos, float depth, bool b_sys);
+			
+			cell(map_renderer2 *m_owner);
+			cell(const cell &m);
+			inline cell &operator =(const cell &m);
+			
+			~cell();
+		};
+		
+		std::vector<cell> m_cells;
+		size_t __i_update;
+		map_metrics::region m_rgn;
+		
+		tile_index_type i_missing;
+
+		inline void __update_cell(tile_index_type i_tile, coord m_coord, float depth, bool b_sys);
+	public:
+		void begin_layers(const Vector2d &m_offset, size_type n_layers = 1);
+		void end_layers();
+		
+		inline void push_depth()
+		{
+			g_depth_layer_stack.push();
+		}
+		
+		inline void pop_depth()
+		{
+			g_depth_layer_stack.pop();
+		}
+		
+		void draw_background_layer(tile_index_type i_bg = UTS_AUTOTILEEDIT_BG_TILE);
+		void draw_video_layer(const video_tile_buf::bufi *m_bufi, tile_index_type i_missing = UTS_DEFAULT_MISSING_TILE);
+		void draw_state_layer(const logic_tile_buf::bufi *m_bufi);
+		void draw_neighbor_layer(const logic_tile_buf::bufi *m_bufi);
+		
+		map_renderer2(const map_metrics &m_metrics, atlas::handle_type tileset_id);
+		
+		const map_metrics &get_metrics() const;
+		
+		void set_tile_size(const Vector2d &m_tile_size);
+		void set_coords(coord m_coords);
+		void set_extent(extent m_extent);
+		void set_clip(bool b_clip);
+	};
+
+	/*class map_renderer_base
 	{
 	private:
 		map_metrics m_metrics;
@@ -68,20 +147,20 @@ namespace UTD
 		inline float get_tile_width()  const {return m_metrics.m_tile_size.getX();}
 		inline float get_tile_height() const {return m_metrics.m_tile_size.getY();}
 		
-		inline void set_clip_rect(coord m_coords, extent m_extent)         {m_metrics.m_clip_coords = m_coords; m_metrics.m_clip_extent = m_extent;}
-		inline void get_clip_rect(coord &m_coords, extent &m_extent) const {m_coords = m_metrics.m_clip_coords; m_extent = m_metrics.m_clip_extent;}
+		inline void set_clip_rect(coord m_coords, extent m_extent)         {m_metrics.m_coords = m_coords; m_metrics.m_extent = m_extent;}
+		inline void get_clip_rect(coord &m_coords, extent &m_extent) const {m_coords = m_metrics.m_coords; m_extent = m_metrics.m_extent;}
 		
-		inline void   set_clip_coords(coord m_coords)  {m_metrics.m_clip_coords = m_coords;}
-		inline coord  get_clip_coords() const          {return m_metrics.m_clip_coords;}
+		inline void   set_clip_coords(coord m_coords)  {m_metrics.m_coords = m_coords;}
+		inline coord  get_clip_coords() const          {return m_metrics.m_coords;}
 		
-		inline void   set_clip_extent(extent m_extent) {m_metrics.m_clip_extent = m_extent;}
-		inline extent get_clip_extent() const          {return m_metrics.m_clip_extent;}
+		inline void   set_clip_extent(extent m_extent) {m_metrics.m_extent = m_extent;}
+		inline extent get_clip_extent() const          {return m_metrics.m_extent;}
 		
 		inline void set_clip(bool b_clip) {m_metrics.b_clip = b_clip;}
 		inline bool get_clip() const      {return m_metrics.b_clip;}
 		
-		inline void  set_depth(float depth) {m_metrics.depth = depth;}
-		inline float get_depth() const      {return m_metrics.depth;}
+		inline void  set_depth(depth_layer depth) {m_metrics.depth = depth;}
+		inline depth_layer get_depth() const      {return m_metrics.depth;}
 	};
 	
 	class logic_buf_renderer:
@@ -301,11 +380,11 @@ namespace UTD
 		template <size_type i>
 		inline void draw_tile(const pattern_part &m_part, const Vector2d &m_pos);
 	public:
-		pattern_renderer(const Vector2d &m_tile_size, float depth = 0.0f);
+		pattern_renderer(const Vector2d &m_tile_size, depth_layer depth = {0,0,0});
 		virtual ~pattern_renderer();
 		
 		void draw(const pattern_part &m_part, const Vector2d &m_pos);
-	};
+	};*/
 }
 
 #endif

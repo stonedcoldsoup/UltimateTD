@@ -10,6 +10,7 @@ SET ( BINSOURCES exceptions.h
 				 handle_name_allocator.h
 				 streamable.h encoding.h
 				 common.h common.cpp
+				 depth_layer.h depth_layer.cpp
 				 prng.h prng.c
 				 fismath.h fismath.cpp
 				 atlas.h atlas.cpp

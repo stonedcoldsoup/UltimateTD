@@ -14,9 +14,6 @@
 
 namespace UTD
 {
-	class tileset; // drawable reference to a tiled region returned by the atlas
-	class sprite;  // drawable reference to a region or texture returned by the atlas
-
 	class atlas:
 		public util::singleton<atlas>,
 		public streamable
