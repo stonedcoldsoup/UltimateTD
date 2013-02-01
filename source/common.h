@@ -283,7 +283,7 @@ namespace UTD
 #define UTD_EXCEPTION_TYPE(FACTORY_, ID_, WHAT_, NAMES_...) \
 	static const ::UTD::exception::factory FACTORY_ = ::UTD::exception::factory(ID_, WHAT_, ##NAMES_);
 	
-	class log_stream
+	/*class log_stream
 	{
 	private:
 		typedef
@@ -365,7 +365,7 @@ namespace UTD
 		
 		stl_log_stream(const stl_log_stream &m) = delete;
 		stl_log_stream &operator =(const stl_log_stream &m) = delete;
-	};
+	};*/
 	
 	typedef
 		int16_t

@@ -56,7 +56,7 @@ static constexpr float GLOBAL_FPS       = 60.0;
 static constexpr float UPDATE_FREQUENCY = 1.0/60.0;
 
 // GLOBALS BECAUSE I HATE KITTENS AND HAPPINESS
-RenderSystem  g_rendersystem(Vector2d(800, 600), false);
+RenderSystem *g_rendersystem;
 Timer 		  g_timer;
 //BitmapFontPtr g_font;
 
@@ -69,7 +69,6 @@ Timer 		  g_timer;
 //#define MAPWIDTH  3
 //#define MAPHEIGHT 3
 
-widget_manager   		 m_editor_widgets;
 pattern_part             m_test_pat;
 
 auto_tile_map        m_automap(extent(MAPWIDTH, MAPHEIGHT));
@@ -86,11 +85,15 @@ void cleanup()
 
 	builtin_tileset::destroy();
 	atlas::destroy();
+	
+	delete g_rendersystem;
 }
 
 void init()
 {
-	atlas::create(g_rendersystem);
+    g_rendersystem = new RenderSystem(Vector2d(800, 600), false);
+
+	atlas::create(*g_rendersystem);
 	builtin_tileset::create();
 	
 	id_tiles_tex = atlas::instance()->create_texture("tiles2_0.png", false);
@@ -164,38 +167,39 @@ void draw_all()
 
 int main()
 {
-	init();
+    init();
 
-	bool b_running = true;
-	float t_accum = 0.0f;
+    bool b_running = true;
+    float t_accum = 0.0f;
 
-	g_timer.start();
-	while (b_running)
-	{
-		t_accum += (float)g_timer.getTime();
-		g_timer.reset();
-		
-		bool b_redraw = false;
-		if (t_accum >= UPDATE_FREQUENCY)
-		{
-			do // yeah, this is a do-while. deal with it.
-			{
-				t_accum -= UPDATE_FREQUENCY;
-				update_all();
-			}
-			while (t_accum >= UPDATE_FREQUENCY);
-			b_redraw = true;
-		}
-		
-		if (b_redraw)
-		{
-			if (!g_rendersystem.run())
-				b_running = false;
-		
-			draw_all();
-			b_redraw = false;
-		}
-	}
+    g_timer.start();
+    std::cout << "timer?" << std::endl;
+    while (b_running)
+    {
+	    t_accum += (float)g_timer.getTime();
+	    g_timer.reset();
+	
+	    bool b_redraw = false;
+	    if (t_accum >= UPDATE_FREQUENCY)
+	    {
+		    do // yeah, this is a do-while. deal with it.
+		    {
+			    t_accum -= UPDATE_FREQUENCY;
+			    update_all();
+		    }
+		    while (t_accum >= UPDATE_FREQUENCY);
+		    b_redraw = true;
+	    }
+	
+	    if (b_redraw)
+	    {
+		    if (!g_rendersystem->run())
+			    b_running = false;
+	
+		    draw_all();
+		    b_redraw = false;
+	    }
+    }
 	
 	cleanup();
 	return 0;

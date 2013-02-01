@@ -86,8 +86,8 @@ namespace UTD
 	public:
 		// constant iterators only; screwing with the internal
 		// bookkeeping would be a disaster
-		auto begin() const -> decltype(m_data_map.begin()) {return m_data_map.begin();}
-		auto end()   const -> decltype(m_data_map.end())   {return m_data_map.end();}
+		auto begin() const -> typename data_map::const_iterator {return m_data_map.begin();}
+		auto end()   const -> typename data_map::const_iterator {return m_data_map.end();}
 	
 		template <typename... argT>
 		inline handle_type alloc(const std::string &m_name, argT&&... argV)

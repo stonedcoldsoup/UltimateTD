@@ -6,7 +6,7 @@ namespace UTD
 	|* SHELL LOG BASE *|
 	\******************/
 	
-	// we have a concrete intermediate call so that a
+	/*// we have a concrete intermediate call so that a
 	// concrete address can be given for the write
 	// subscriber
 	void log_stream::__do_write(const std::string &s)
@@ -115,13 +115,13 @@ namespace UTD
 		}
 
 		return m_src;
-	}
+	}*/
 	
 	/************************************\
 	|* SHELL LOG OSTREAM IMPLEMENTATION *|
 	\************************************/
 	
-	stl_log_stream::stl_log_stream():
+	/*stl_log_stream::stl_log_stream():
 		log_stream(),
 		p_os(&std::cout)
 	{}
@@ -153,5 +153,5 @@ namespace UTD
 		m.p_os = tmp;
 		
 		return *this;
-	}
+	}*/
 }

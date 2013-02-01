@@ -4,6 +4,8 @@
 #include "common.h"
 #include "exceptions.h"
 
+#include <array>
+
 namespace UTD
 {
 	template <int _min_depth, int _max_depth, size_t... n_segs>
@@ -107,8 +109,12 @@ namespace UTD
 		typedef
 			layer_range_defT
 			range_def_type;
+	    
+	    typedef
+	        std::array<size_t, range_def_type::sub_layer_count>
+            depth_index_array;
 	private:
-		std::array<std::array<size_t, range_def_type::sub_layer_count>, range_def_type::sub_layer_count> m_stack;
+		std::array<depth_index_array, range_def_type::sub_layer_count> m_stack;
 		size_t i_stack;
 		
 	public:
@@ -138,8 +144,7 @@ namespace UTD
 			std::fill(m_stack[0].begin(), m_stack[0].end(), 0);
 		}
 		
-		inline auto get_depth_indices() const ->
-			decltype(m_stack[i_stack])
+		inline const depth_index_array &get_depth_indices() const
 		{
 			return m_stack[i_stack];
 		}
