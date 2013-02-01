@@ -19,88 +19,35 @@ namespace UTD
 		return true;
 	}
 	
-	inline void map_renderer2::cell::update(tile_index_type i_tile, coord m_pos, float depth, bool b_sys)
-	{
-		if (i_tile < (b_sys ? m_owner->m_builtin_factory.tile_count() : m_owner->m_user_factory.tile_count()))
-		{
-			if (m_image)
-			{
-				m_image->set_position(m_pos);
-				m_image->set_depth(depth);
-				m_image->set_tile(i_tile, b_sys ? m_owner->m_builtin_factory : m_owner->m_user_factory);
-			}
-			else
-			{
-				m_image = b_sys ?
-						  m_owner->m_builtin_factory.create_rect(m_pos, i_tile, depth) :
-						  m_owner->m_user_factory.create_rect(m_pos, i_tile, depth);
-			}
-		}
-		else
-		{
-			if (m_image)
-			{
-				m_image->set_position(m_pos);
-				m_image->set_depth(depth);
-				m_image->set_tile(m_owner->i_missing, m_owner->m_builtin_factory);
-			}
-			else
-				m_image = m_owner->m_builtin_factory.create_rect(m_pos, m_owner->i_missing, depth);
-		}
-	
-		m_image->update();
-	}
-	
-	map_renderer2::cell::cell(map_renderer2 *m_owner):
-		m_owner(m_owner),
-		m_image(nullptr)
-	{}
-	
-	map_renderer2::cell::cell(const cell &m):
-		m_owner(m.m_owner),
-		m_image(nullptr)
-	{}
-	
-	inline map_renderer2::cell &map_renderer2::cell::operator =(const cell &m)
-	{
-		m_owner = m.m_owner;
-		return *this;
-	}
-	
-	map_renderer2::cell::~cell()
-	{
-		if (m_image) atlas::image_factory::destroy(m_image);
-	}
-	
 	inline void map_renderer2::__update_cell(tile_index_type i_tile, coord m_coord, float depth, bool b_sys)
 	{
-		if (__i_update >= m_cells.size())
-			m_cells.push_back(this);
-		
-		m_cells[__i_update++].update
+		const coord m_pos = coord
 		(
-			i_tile,
-			coord
-			(
-				m_rgn.m_pos.getX()+m_metrics.m_tile_size.getX()*float(m_coord.x),
-				m_rgn.m_pos.getY()+m_metrics.m_tile_size.getY()*float(m_coord.y)
-			),
-			depth,
-			b_sys
+			m_rgn.m_pos.getX()+m_metrics.m_tile_size.getX()*float(m_coord.x),
+			m_rgn.m_pos.getY()+m_metrics.m_tile_size.getY()*float(m_coord.y)
 		);
+	
+		atlas::rect_image *m_image = nullptr;
+		if (i_tile < (b_sys ? m_builtin_factory.tile_count() : m_user_factory.tile_count()))
+		{
+			m_image = b_sys ?
+					  m_builtin_factory.create_rect(m_pos, i_tile, depth) :
+					  m_user_factory.create_rect(m_pos, i_tile, depth);
+		}
+		else
+			m_image = m_builtin_factory.create_rect(m_pos, i_missing, depth);
+	
+		if (m_image) atlas::image_factory::immediate(m_image); // destroys the object and commits an immediate render.
 	}
 
 	void map_renderer2::begin_layers(const Vector2d &m_offset, size_type n_layers)
 	{
 		__i_update = 0;
 		m_metrics.compute_map_region(m_offset, m_rgn);
-		m_cells.clear();
-		m_cells.reserve((n_layers+8)*m_rgn.m_extent.size());
 	}
 	
 	void map_renderer2::end_layers()
 	{
-		m_cells.erase(m_cells.begin() + __i_update, m_cells.end());
 	}
 	
 	void map_renderer2::draw_background_layer(tile_index_type i_bg)
@@ -108,9 +55,7 @@ namespace UTD
 		for (size_type y = 0; y < m_rgn.m_extent.y; ++y)
 		{
 			for (size_type x = 0; x < m_rgn.m_extent.x; ++x)
-			{
 				__update_cell(i_bg, coord(x, y), g_depth_layer_stack, true);
-			}
 		}
 		
 		++g_depth_layer_stack;
@@ -189,7 +134,6 @@ namespace UTD
 	
 	void map_renderer2::set_tile_size(const Vector2d &m_tile_size)
 	{
-		m_cells.clear();
 		m_metrics.m_tile_size = m_tile_size;
 		m_user_factory.set_out_extent(m_tile_size);
 		m_builtin_factory.set_out_extent(m_tile_size);

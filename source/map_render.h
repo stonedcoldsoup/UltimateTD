@@ -81,21 +81,6 @@ namespace UTD
 		atlas::image_factory m_user_factory;
 		atlas::image_factory m_builtin_factory;
 		
-		struct cell
-		{
-			map_renderer2 *m_owner;
-			atlas::rect_image *m_image;
-			
-			inline void update(tile_index_type i_tile, coord m_pos, float depth, bool b_sys);
-			
-			cell(map_renderer2 *m_owner);
-			cell(const cell &m);
-			inline cell &operator =(const cell &m);
-			
-			~cell();
-		};
-		
-		std::vector<cell> m_cells;
 		size_t __i_update;
 		map_metrics::region m_rgn;
 		

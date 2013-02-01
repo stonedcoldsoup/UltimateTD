@@ -208,6 +208,30 @@ namespace UTD
 		{
 			m_alloc_rect.destroy(m_rect_image);
 		}
+		
+		static inline void immediate(image *m_image)
+		{
+			m_image->update();
+		
+			BatchGeometryPtr m_geom;
+			std::swap(m_image->m_geom, m_geom);
+			if (m_geom)
+				m_geom->setImmediate(true);
+			
+			destroy(m_image);
+		}
+		
+		static inline void immediate(rect_image *m_rect_image)
+		{
+			m_rect_image->update();
+		
+			BatchGeometryPtr m_geom;
+			std::swap(m_rect_image->m_geom, m_geom);
+			if (m_geom)
+				m_geom->setImmediate(true);
+			
+			destroy(m_rect_image);
+		}
 	};
 }
 

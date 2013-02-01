@@ -27,15 +27,6 @@ namespace UTD
 	template <size_type i_edge>
 	inline void auto_tile_map::update_tile_pattern(coord m_coords)
 	{
-		if (!m_bufl.get(m_coords))
-		{
-			m_bufl.set_active_layer(1);
-			m_bufl.set(m_coords, 0);
-			m_bufl.set_active_layer(0);
-			return; // do not get neighbor info for
-				   // empty tiles
-		}
-
 		uint8_t byte = b_solid_map_edge ? sample_edge_initialize(i_edge) : 0;
 		each_in_mask
 		(
