@@ -106,13 +106,28 @@ void init()
 		//id_big_rgn   = atlas::instance()->create_region("tileset_all0", id_tiles_tex);
 	}
 	
+	static constexpr uint8_t pat[11][11] =
+	{
+		{0,0,0,0,0,0,0,0,0,0,0},
+		{0,0,0,0,1,1,1,0,0,0,0},
+		{0,0,1,1,1,1,1,1,1,0,0},
+		{0,0,1,1,0,0,0,1,1,0,0},
+		{0,1,1,0,0,0,0,0,1,1,0},
+		{0,1,1,0,0,0,0,0,1,1,0},
+		{0,1,1,0,0,0,0,0,1,1,0},
+		{0,0,1,1,0,0,0,1,1,0,0},
+		{0,0,1,1,1,1,1,1,1,0,0},
+		{0,0,0,0,1,1,1,0,0,0,0},
+		{0,0,0,0,0,0,0,0,0,0,0}
+	};
+	
 	m_automap.state_buf()->each_in
 	(
 		coord(),
 		m_automap.get_extent(),
 		[&] (coord m_coord, uint8_t &b)
 		{
-			b = bool((m_coord.y % 2) ? m_coord.x % 2 : (m_coord.x+1) % 2);
+			b = pat[m_coord.x%11][m_coord.y%11];
 		}
 	);
 	
